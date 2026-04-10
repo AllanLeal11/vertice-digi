@@ -10,9 +10,9 @@ app = Flask(__name__)
 
 sesiones = {}
 aprobaciones_pendientes = {}
-archivos = {}  # Ahora guarda bytes (PDF) o str (HTML)
+archivos = {}  # bytes para PDF o str para HTML
 
-# ==================== HTML CHAT FUNCIONAL ====================
+# ==================== HTML CHAT CON BOTÓN DE DESCARGA VISIBLE ====================
 HTML_CHAT = """
 <!DOCTYPE html>
 <html lang="es">
@@ -93,7 +93,7 @@ HTML_CHAT = """
                 const data = await res.json();
 
                 let displayText = data.respuesta || '';
-                if (displayText) addMessage('assistant', displayText, data.nombre_agente);
+                if (displayText) addMessage('assistant', displayText, data.nombre_agente, data.pdf_file_id);
 
                 if (data.html_file_id) {
                     const link = document.createElement('a');
@@ -101,32 +101,39 @@ HTML_CHAT = """
                     link.download = 'vertice-digital.html';
                     link.click();
                 }
-                if (data.pdf_file_id) {
-                    const link = document.createElement('a');
-                    link.href = `/descargar/${data.pdf_file_id}`;
-                    link.download = 'propuesta.pdf';
-                    link.click();
-                }
             } catch (e) {
                 addMessage('assistant', '❌ Error de conexión con el servidor', 'Sistema');
             }
         }
 
-        function addMessage(role, text, agentName = '') {
+        function addMessage(role, text, agentName = '', pdfFileId = null) {
             const chat = document.getElementById('chat');
             const msg = document.createElement('div');
             msg.className = 'message';
+
             if (role === 'user') {
                 msg.classList.add('flex', 'justify-end');
                 msg.innerHTML = `<div class="max-w-[75%] bg-violet-600 text-white px-5 py-3 rounded-3xl rounded-tr-none">${text}</div>`;
             } else {
                 msg.classList.add('flex', 'gap-3');
-                msg.innerHTML = `
+                let html = `
                     <div class="w-8 h-8 bg-gray-700 rounded-2xl flex-shrink-0 flex items-center justify-center text-sm font-bold">${agentName ? agentName.substring(0,1) : '🤖'}</div>
                     <div>
                         ${agentName ? `<div class="text-xs text-gray-400 mb-1">${agentName}</div>` : ''}
-                        <div class="bg-gray-800 px-5 py-3 rounded-3xl rounded-tl-none">${text}</div>
-                    </div>`;
+                        <div class="bg-gray-800 px-5 py-3 rounded-3xl rounded-tl-none">${text}</div>`;
+
+                if (pdfFileId) {
+                    html += `
+                        <div class="mt-4">
+                            <a href="/descargar/${pdfFileId}" 
+                               class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 px-6 py-3 rounded-2xl text-white font-medium">
+                                <i class="fas fa-download"></i>
+                                📥 Descargar PDF
+                            </a>
+                        </div>`;
+                }
+                html += `</div>`;
+                msg.innerHTML = html;
             }
             chat.appendChild(msg);
             chat.scrollTop = chat.scrollHeight;
@@ -168,7 +175,7 @@ def chat():
     if len(sesiones[session_id]) > 20:
         sesiones[session_id] = sesiones[session_id][-20:]
 
-    # === PROCESAR PDF (Versión corregida) ===
+    # === PROCESAR PDF ===
     try:
         from agents.ventas import generar_pdf_desde_texto
         respuesta = resultado.get("respuesta", "")
@@ -185,11 +192,11 @@ def chat():
             file_id = str(uuid.uuid4())[:8].upper()
             archivos[file_id] = pdf_bytes
             resultado["pdf_file_id"] = file_id
-            resultado["respuesta"] = f"✅ {titulo} lista. Hacé clic en el botón para descargar el PDF."
+            resultado["respuesta"] = f"✅ {titulo} lista."
     except:
         pass
 
-    # === PROCESAR HTML del Desarrollador ===
+    # === PROCESAR HTML ===
     try:
         from agents.desarrollador import procesar_respuesta_desarrollador
         processed = procesar_respuesta_desarrollador(resultado.get("respuesta", ""))
