@@ -1,1 +1,1 @@
-# vertice-digi
+# vertice-digital
