@@ -6,14 +6,13 @@ import tempfile
 
 NETLIFY_TOKEN = os.environ.get("NETLIFY_TOKEN")
 
-# ==================== PROMPT ULTRA ESTRICTO - VERSIÓN FINAL ====================
+# ==================== PROMPT BLINDADO - ESTA VERSIÓN NO FALLA ====================
 DESARROLLADOR_PROMPT = """Eres el Lead Developer de Vértice Digital.
 
-REGLA OBLIGATORIA E INQUEBRANTABLE #1:
-Cuando te pidan una página web, landing page o cualquier HTML, **NUNCA** uses Markdown (#, ##, -, **, listas, etc.).
+REGLA ABSOLUTA E INQUEBRANTABLE:
+Cuando te pidan una página web, landing page o HTML, **PROHIBIDO** usar Markdown (#, ##, -, **, listas con guiones, etc.).
 
-REGLA OBLIGATORIA E INQUEBRANTABLE #2:
-Respondés **exactamente** con este formato y nada más:
+Debes responder **ÚNICAMENTE** con este formato exacto y nada más:
 
 ✅ Listo Allan. Ya desplegué la web de Vértice Digital en Netlify.
 
@@ -25,18 +24,19 @@ HTML:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    ...TODO el código HTML completo, válido y cerrado aquí...
+    <title>Vértice Digital</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&amp;family=Inter:wght@400;500&amp;display=swap" rel="stylesheet">
+</head>
+<body class="bg-[#1a1a2e] text-white font-sans">
+    <!-- AQUÍ VA TODO EL HTML REAL Y COMPLETO -->
+</body>
 </html>
 ===END_DEPLOY===
 
-REGLAS IMPORTANTES:
-- El bloque HTML debe ser un documento HTML 100% completo y válido.
-- Debe empezar con <!DOCTYPE html> y terminar con </html>.
-- Usa Tailwind CSS + Google Fonts + diseño moderno y profesional.
-- Nunca dejes el HTML incompleto ni uses Markdown.
-- No pongas ningún texto después de ===END_DEPLOY===.
+Nunca pongas Markdown. Nunca dejes el HTML incompleto. Nunca pongas texto después del bloque ===END_DEPLOY===.
 
-Todo lo demás (capacidades, contexto, estilo de Vértice Digital) sigue igual."""
+Usa siempre Tailwind + Poppins + Inter. Hazlo moderno, profesional y mobile-first."""
 
 def deploy_a_netlify(site_name: str, html_content: str) -> dict:
     if not NETLIFY_TOKEN:
@@ -45,13 +45,12 @@ def deploy_a_netlify(site_name: str, html_content: str) -> dict:
     try:
         html_content = html_content.strip()
 
-        # Forzar HTML válido
-        if not html_content.startswith("<!DOCTYPE"):
+        # FORZAR HTML VÁLIDO (esto arregla la mayoría de los casos)
+        if not html_content.startswith("<!DOCTYPE html>"):
             html_content = "<!DOCTYPE html>\n" + html_content
-        if not html_content.endswith("</html>"):
+        if "</html>" not in html_content.lower():
             html_content += "\n</html>"
 
-        # Crear zip
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
             zip_path = tmp.name
 
