@@ -6,16 +6,16 @@ import tempfile
 
 NETLIFY_TOKEN = os.environ.get("NETLIFY_TOKEN")
 
-# ==================== PROMPT ULTRA ESTRICTO (versión final) ====================
+# ==================== PROMPT ULTRA ESTRICTO - VERSIÓN FINAL ====================
 DESARROLLADOR_PROMPT = """Eres el Lead Developer de Vértice Digital.
 
-REGLA OBLIGATORIA E INQUEBRANTABLE:
-Cuando te pidan una página web, landing page o cualquier HTML, respondés **exactamente** así:
+REGLA OBLIGATORIA E INQUEBRANTABLE #1:
+Cuando te pidan una página web, landing page o cualquier HTML, **NUNCA** uses Markdown (#, ##, -, **, listas, etc.).
 
-Primero un mensaje corto (máximo 2 líneas):
-"✅ Listo Allan. Ya desplegué la web de Vértice Digital en Netlify."
+REGLA OBLIGATORIA E INQUEBRANTABLE #2:
+Respondés **exactamente** con este formato y nada más:
 
-Luego, **exactamente al final** y sin ningún texto después, ponés este bloque:
+✅ Listo Allan. Ya desplegué la web de Vértice Digital en Netlify.
 
 ===NETLIFY_DEPLOY===
 SITE_NAME: vertice-digital
@@ -24,31 +24,34 @@ HTML:
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    ...TODO el código HTML completo, válido y cerrado...
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    ...TODO el código HTML completo, válido y cerrado aquí...
 </html>
 ===END_DEPLOY===
 
 REGLAS IMPORTANTES:
-- El HTML debe ser 100% completo: empezar con <!DOCTYPE html> y terminar con </html>
-- Todas las etiquetas deben estar bien cerradas (no dejes nada cortado)
-- Usa Tailwind + Google Fonts + diseño moderno profesional
-- NUNCA uses placeholders ni dejes el código incompleto
-- NUNCA pongas texto después del bloque ===END_DEPLOY===
+- El bloque HTML debe ser un documento HTML 100% completo y válido.
+- Debe empezar con <!DOCTYPE html> y terminar con </html>.
+- Usa Tailwind CSS + Google Fonts + diseño moderno y profesional.
+- Nunca dejes el HTML incompleto ni uses Markdown.
+- No pongas ningún texto después de ===END_DEPLOY===.
 
-El resto de tus capacidades y contexto siguen igual."""
+Todo lo demás (capacidades, contexto, estilo de Vértice Digital) sigue igual."""
 
 def deploy_a_netlify(site_name: str, html_content: str) -> dict:
     if not NETLIFY_TOKEN:
         return {"success": False, "error": "NETLIFY_TOKEN no configurado"}
 
     try:
-        # Limpiar y asegurar que sea HTML válido
         html_content = html_content.strip()
+
+        # Forzar HTML válido
         if not html_content.startswith("<!DOCTYPE"):
             html_content = "<!DOCTYPE html>\n" + html_content
         if not html_content.endswith("</html>"):
             html_content += "\n</html>"
 
+        # Crear zip
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
             zip_path = tmp.name
 
@@ -100,7 +103,6 @@ def deploy_a_netlify(site_name: str, html_content: str) -> dict:
 
 
 def procesar_respuesta_desarrollador(respuesta: str) -> dict:
-    """Parser mejorado y más tolerante"""
     resultado = {
         "respuesta_limpia": respuesta,
         "netlify_url": None,
@@ -108,8 +110,7 @@ def procesar_respuesta_desarrollador(respuesta: str) -> dict:
         "deployed": False
     }
 
-    # Regex más robusto (captura hasta el último ===END_DEPLOY===)
-    patron = r"===NETLIFY_DEPLOY===\s*SITE_NAME:\s*(.+?)\s*HTML:\s*([\s\S]*?)(?====END_DEPLOY===|\Z)"
+    patron = r"===NETLIFY_DEPLOY===\s*SITE_NAME:\s*(.+?)\s*HTML:\s*([\s\S]*?)(?===END_DEPLOY===|\Z)"
     match = re.search(patron, respuesta, re.IGNORECASE | re.DOTALL)
 
     if not match:
@@ -118,11 +119,9 @@ def procesar_respuesta_desarrollador(respuesta: str) -> dict:
     site_name = match.group(1).strip().lower().replace(" ", "-")
     html_content = match.group(2).strip()
 
-    # Limpiar respuesta para el usuario
     respuesta_limpia = re.sub(patron, "", respuesta, flags=re.IGNORECASE | re.DOTALL).strip()
     resultado["respuesta_limpia"] = respuesta_limpia or "✅ Página web generada y desplegada correctamente."
 
-    # Deploy
     deploy_result = deploy_a_netlify(site_name, html_content)
 
     if deploy_result["success"]:
