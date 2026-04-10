@@ -12,7 +12,7 @@ sesiones = {}
 aprobaciones_pendientes = {}
 archivos = {}  # bytes para PDF o str para HTML
 
-# ==================== HTML CHAT CON BOTÓN DE DESCARGA VISIBLE ====================
+# ==================== HTML CHAT CON BOTÓN GRANDE VISIBLE ====================
 HTML_CHAT = """
 <!DOCTYPE html>
 <html lang="es">
@@ -126,7 +126,7 @@ HTML_CHAT = """
                     html += `
                         <div class="mt-4">
                             <a href="/descargar/${pdfFileId}" 
-                               class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 px-6 py-3 rounded-2xl text-white font-medium text-sm">
+                               class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 px-8 py-4 rounded-3xl text-white font-medium text-base shadow-lg">
                                 <i class="fas fa-download"></i>
                                 📥 Descargar PDF
                             </a>
@@ -204,7 +204,6 @@ def chat():
     except:
         pass
 
-    # Telegram
     telegram_enviado = False
     if any(p in mensaje.lower() for p in ['post', 'publicación', 'instagram', 'facebook', 'tiktok', 'publicar']):
         id_aprobacion = str(uuid.uuid4())[:8].upper()
@@ -231,11 +230,7 @@ def descargar(file_id):
         )
     else:  # HTML
         from flask import Response
-        return Response(
-            archivo,
-            mimetype='text/html',
-            headers={'Content-Disposition': 'attachment; filename=vertice-digital.html'}
-        )
+        return Response(archivo, mimetype='text/html', headers={'Content-Disposition': 'attachment; filename=vertice-digital.html'})
 
 @app.route('/chat/paralelo', methods=['POST'])
 def chat_paralelo():
