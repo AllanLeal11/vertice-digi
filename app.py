@@ -1,5 +1,6 @@
 import os
 import uuid
+import io
 from flask import Flask, request, jsonify, render_template_string, send_file
 from agents.base import responder, responder_paralelo
 from agents.router import detectar_combinacion
@@ -9,7 +10,7 @@ app = Flask(__name__)
 
 sesiones = {}
 aprobaciones_pendientes = {}
-archivos = {}  # Ahora guarda tanto HTML como PDF
+archivos = {}  # Ahora guarda bytes (PDF) o str (HTML)
 
 # ==================== HTML CHAT FUNCIONAL ====================
 HTML_CHAT = """
@@ -92,10 +93,7 @@ HTML_CHAT = """
                 const data = await res.json();
 
                 let displayText = data.respuesta || '';
-
-                if (displayText) {
-                    addMessage('assistant', displayText, data.nombre_agente);
-                }
+                if (displayText) addMessage('assistant', displayText, data.nombre_agente);
 
                 if (data.html_file_id) {
                     const link = document.createElement('a');
@@ -118,7 +116,6 @@ HTML_CHAT = """
             const chat = document.getElementById('chat');
             const msg = document.createElement('div');
             msg.className = 'message';
-
             if (role === 'user') {
                 msg.classList.add('flex', 'justify-end');
                 msg.innerHTML = `<div class="max-w-[75%] bg-violet-600 text-white px-5 py-3 rounded-3xl rounded-tr-none">${text}</div>`;
@@ -171,7 +168,7 @@ def chat():
     if len(sesiones[session_id]) > 20:
         sesiones[session_id] = sesiones[session_id][-20:]
 
-    # === PROCESAR PDF DEL AGENTE DE VENTAS ===
+    # === PROCESAR PDF (Versión corregida) ===
     try:
         from agents.ventas import generar_pdf_desde_texto
         respuesta = resultado.get("respuesta", "")
@@ -184,15 +181,15 @@ def chat():
             if "TÍTULO:" in bloque:
                 titulo = bloque.split("TÍTULO:")[1].split("\n")[0].strip()
 
-            pdf_path = generar_pdf_desde_texto(titulo, bloque)
+            pdf_bytes = generar_pdf_desde_texto(titulo, bloque)
             file_id = str(uuid.uuid4())[:8].upper()
-            archivos[file_id] = pdf_path
+            archivos[file_id] = pdf_bytes
             resultado["pdf_file_id"] = file_id
             resultado["respuesta"] = f"✅ {titulo} lista. Hacé clic en el botón para descargar el PDF."
     except:
         pass
 
-    # === PROCESAR HTML DEL DESARROLLADOR (mantengo compatibilidad) ===
+    # === PROCESAR HTML del Desarrollador ===
     try:
         from agents.desarrollador import procesar_respuesta_desarrollador
         processed = procesar_respuesta_desarrollador(resultado.get("respuesta", ""))
@@ -200,7 +197,7 @@ def chat():
     except:
         pass
 
-    # Telegram aprobaciones (original)
+    # Telegram
     telegram_enviado = False
     if any(p in mensaje.lower() for p in ['post', 'publicación', 'instagram', 'facebook', 'tiktok', 'publicar']):
         id_aprobacion = str(uuid.uuid4())[:8].upper()
@@ -218,14 +215,22 @@ def descargar(file_id):
 
     archivo = archivos[file_id]
 
-    if isinstance(archivo, str) and archivo.endswith('.pdf'):
-        return send_file(archivo, as_attachment=True, download_name="propuesta.pdf")
-    else:
-        # HTML
+    if isinstance(archivo, bytes):  # PDF
+        return send_file(
+            io.BytesIO(archivo),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name="propuesta.pdf"
+        )
+    else:  # HTML
         from flask import Response
-        return Response(archivo, mimetype='text/html', headers={'Content-Disposition': 'attachment; filename=vertice-digital.html'})
+        return Response(
+            archivo,
+            mimetype='text/html',
+            headers={'Content-Disposition': 'attachment; filename=vertice-digital.html'}
+        )
 
-# Resto de rutas (exactamente las mismas que tenías)
+# Resto de rutas (igual que antes)
 @app.route('/chat/paralelo', methods=['POST'])
 def chat_paralelo():
     data = request.json
@@ -264,7 +269,6 @@ def webhook_telegram():
     data = request.json
     if not data or 'message' not in data:
         return jsonify({"ok": True})
-    # (código original de webhook, lo mantengo igual)
     return jsonify({"ok": True})
 
 @app.route('/health')
