@@ -6,16 +6,16 @@ import tempfile
 
 NETLIFY_TOKEN = os.environ.get("NETLIFY_TOKEN")
 
-# ==================== PROMPT ULTRA ESTRICTO (nueva versión) ====================
+# ==================== PROMPT ULTRA ESTRICTO (versión final) ====================
 DESARROLLADOR_PROMPT = """Eres el Lead Developer de Vértice Digital.
 
-REGLA OBLIGATORIA E INNEGOCIABLE:
-Cuando te pidan una página web, landing page, sitio o cualquier HTML, **SIEMPRE** respondés de esta forma exacta y nada más:
+REGLA OBLIGATORIA E INQUEBRANTABLE:
+Cuando te pidan una página web, landing page o cualquier HTML, respondés **exactamente** así:
 
-Primero escribís un mensaje corto y claro para el usuario (máximo 2 líneas), por ejemplo:
+Primero un mensaje corto (máximo 2 líneas):
 "✅ Listo Allan. Ya desplegué la web de Vértice Digital en Netlify."
 
-Luego, **exactamente** al final de tu respuesta, ponés este bloque sin ningún texto extra después:
+Luego, **exactamente al final** y sin ningún texto después, ponés este bloque:
 
 ===NETLIFY_DEPLOY===
 SITE_NAME: vertice-digital
@@ -24,25 +24,31 @@ HTML:
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    ...aquí va TODO el código HTML completo y real...
+    ...TODO el código HTML completo, válido y cerrado...
 </html>
 ===END_DEPLOY===
 
-IMPORTANTE:
-- Nunca pongas el HTML fuera del bloque.
-- Nunca uses placeholders como "[todo el código...]" o "[código aquí]".
-- El SITE_NAME debe ser en minúsculas, sin espacios (solo letras, números y guiones).
-- El HTML debe empezar con <!DOCTYPE html> y terminar con </html>.
-- Usa Tailwind + Google Fonts + diseño moderno profesional.
+REGLAS IMPORTANTES:
+- El HTML debe ser 100% completo: empezar con <!DOCTYPE html> y terminar con </html>
+- Todas las etiquetas deben estar bien cerradas (no dejes nada cortado)
+- Usa Tailwind + Google Fonts + diseño moderno profesional
+- NUNCA uses placeholders ni dejes el código incompleto
+- NUNCA pongas texto después del bloque ===END_DEPLOY===
 
-Todo lo demás (capacidades, contexto, etc.) sigue igual que antes."""
+El resto de tus capacidades y contexto siguen igual."""
 
 def deploy_a_netlify(site_name: str, html_content: str) -> dict:
-    """Deploya a Netlify (sin cambios, se mantiene igual)"""
     if not NETLIFY_TOKEN:
         return {"success": False, "error": "NETLIFY_TOKEN no configurado"}
 
     try:
+        # Limpiar y asegurar que sea HTML válido
+        html_content = html_content.strip()
+        if not html_content.startswith("<!DOCTYPE"):
+            html_content = "<!DOCTYPE html>\n" + html_content
+        if not html_content.endswith("</html>"):
+            html_content += "\n</html>"
+
         with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
             zip_path = tmp.name
 
@@ -71,8 +77,7 @@ def deploy_a_netlify(site_name: str, html_content: str) -> dict:
             create_resp = requests.post(
                 "https://api.netlify.com/api/v1/sites",
                 headers={"Authorization": f"Bearer {NETLIFY_TOKEN}", "Content-Type": "application/json"},
-                json={"name": site_name},
-                timeout=15
+                json={"name": site_name}, timeout=15
             )
             if create_resp.status_code not in [200, 201]:
                 import random
@@ -95,7 +100,7 @@ def deploy_a_netlify(site_name: str, html_content: str) -> dict:
 
 
 def procesar_respuesta_desarrollador(respuesta: str) -> dict:
-    """Versión más robusta del parser"""
+    """Parser mejorado y más tolerante"""
     resultado = {
         "respuesta_limpia": respuesta,
         "netlify_url": None,
@@ -103,8 +108,8 @@ def procesar_respuesta_desarrollador(respuesta: str) -> dict:
         "deployed": False
     }
 
-    # Regex más flexible (acepta variaciones de espacios y saltos de línea)
-    patron = r"===NETLIFY_DEPLOY===\s*SITE_NAME:\s*(.+?)\s*HTML:\s*([\s\S]*?)===END_DEPLOY==="
+    # Regex más robusto (captura hasta el último ===END_DEPLOY===)
+    patron = r"===NETLIFY_DEPLOY===\s*SITE_NAME:\s*(.+?)\s*HTML:\s*([\s\S]*?)(?====END_DEPLOY===|\Z)"
     match = re.search(patron, respuesta, re.IGNORECASE | re.DOTALL)
 
     if not match:
@@ -113,11 +118,11 @@ def procesar_respuesta_desarrollador(respuesta: str) -> dict:
     site_name = match.group(1).strip().lower().replace(" ", "-")
     html_content = match.group(2).strip()
 
-    # Limpiar el bloque del mensaje que se muestra al usuario
+    # Limpiar respuesta para el usuario
     respuesta_limpia = re.sub(patron, "", respuesta, flags=re.IGNORECASE | re.DOTALL).strip()
     resultado["respuesta_limpia"] = respuesta_limpia or "✅ Página web generada y desplegada correctamente."
 
-    # Hacer el deploy
+    # Deploy
     deploy_result = deploy_a_netlify(site_name, html_content)
 
     if deploy_result["success"]:
