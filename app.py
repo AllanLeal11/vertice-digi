@@ -10,9 +10,9 @@ app = Flask(__name__)
 
 sesiones = {}
 aprobaciones_pendientes = {}
-archivos = {}  # bytes para PDF o str para HTML
+archivos = {}
 
-# ==================== HTML CHAT CON BOTÓN DE DESCARGA VISIBLE ====================
+# ==================== HTML CHAT CON BOTÓN GRANDE VISIBLE ====================
 HTML_CHAT = """
 <!DOCTYPE html>
 <html lang="es">
@@ -126,7 +126,7 @@ HTML_CHAT = """
                     html += `
                         <div class="mt-4">
                             <a href="/descargar/${pdfFileId}" 
-                               class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 px-6 py-3 rounded-2xl text-white font-medium">
+                               class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 px-8 py-4 rounded-3xl text-white font-medium text-base shadow-lg">
                                 <i class="fas fa-download"></i>
                                 📥 Descargar PDF
                             </a>
@@ -175,7 +175,7 @@ def chat():
     if len(sesiones[session_id]) > 20:
         sesiones[session_id] = sesiones[session_id][-20:]
 
-    # === PROCESAR PDF ===
+    # PDF
     try:
         from agents.ventas import generar_pdf_desde_texto
         respuesta = resultado.get("respuesta", "")
@@ -196,7 +196,7 @@ def chat():
     except:
         pass
 
-    # === PROCESAR HTML ===
+    # HTML del desarrollador
     try:
         from agents.desarrollador import procesar_respuesta_desarrollador
         processed = procesar_respuesta_desarrollador(resultado.get("respuesta", ""))
@@ -204,7 +204,6 @@ def chat():
     except:
         pass
 
-    # Telegram
     telegram_enviado = False
     if any(p in mensaje.lower() for p in ['post', 'publicación', 'instagram', 'facebook', 'tiktok', 'publicar']):
         id_aprobacion = str(uuid.uuid4())[:8].upper()
@@ -222,22 +221,18 @@ def descargar(file_id):
 
     archivo = archivos[file_id]
 
-    if isinstance(archivo, bytes):  # PDF
+    if isinstance(archivo, bytes):
         return send_file(
             io.BytesIO(archivo),
             mimetype='application/pdf',
             as_attachment=True,
             download_name="propuesta.pdf"
         )
-    else:  # HTML
+    else:
         from flask import Response
-        return Response(
-            archivo,
-            mimetype='text/html',
-            headers={'Content-Disposition': 'attachment; filename=vertice-digital.html'}
-        )
+        return Response(archivo, mimetype='text/html', headers={'Content-Disposition': 'attachment; filename=vertice-digital.html'})
 
-# Resto de rutas (igual que antes)
+# Resto de rutas (sin cambios)
 @app.route('/chat/paralelo', methods=['POST'])
 def chat_paralelo():
     data = request.json
