@@ -1,5 +1,13 @@
 import os
+import threading
 from openai import OpenAI
+from .marketing import MARKETING_PROMPT
+from .ventas import VENTAS_PROMPT
+from .desarrollador import DESARROLLADOR_PROMPT
+from .soporte import SOPORTE_PROMPT
+from .asistente import ASISTENTE_PROMPT
+from .disenador import DISENADOR_PROMPT
+from .router import detectar_agente, detectar_combinacion
 
 # ==================== CONFIGURACIÓN OPENROUTER ====================
 client = OpenAI(
@@ -7,11 +15,8 @@ client = OpenAI(
     base_url="https://openrouter.ai/api/v1"
 )
 
-# Modelo recomendado GRATIS y muy potente (abril 2026)
-MODEL = "deepseek/deepseek-r1"          # Mejor opción actual gratis
-# Otras opciones buenas y gratuitas (podés cambiar cuando quieras):
-# MODEL = "meta-llama/llama-3.3-70b-instruct:free"
-# MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+# Modelo gratuito recomendado (muy potente y con buenos límites)
+MODEL = "deepseek/deepseek-r1"   
 
 MAX_TOKENS = 4000
 
@@ -25,7 +30,7 @@ AGENTES = {
 }
 
 def _llamar_openrouter(system_prompt: str, mensajes: list) -> str:
-    """Llama a OpenRouter (compatible con Groq)"""
+    """Llama a OpenRouter"""
     try:
         messages = [{"role": "system", "content": system_prompt}] + mensajes
         response = client.chat.completions.create(
@@ -43,11 +48,13 @@ def responder(mensaje: str, historial: list = None, agente_forzado: str = "auto"
     if historial is None:
         historial = []
 
+    # Detectar combinación paralela
     if agente_forzado in ("auto", "asistente"):
         combinacion = detectar_combinacion(mensaje)
         if combinacion:
             return responder_paralelo(mensaje, combinacion)
 
+    # Agente único
     if agente_forzado and agente_forzado != "auto" and agente_forzado in AGENTES:
         agente_key = agente_forzado
     else:
@@ -66,7 +73,7 @@ def responder(mensaje: str, historial: list = None, agente_forzado: str = "auto"
 
 
 def responder_paralelo(mensaje: str, combinacion: dict) -> dict:
-    """Múltiples agentes trabajan simultáneamente (sin cambios)"""
+    """Múltiples agentes trabajan simultáneamente"""
     resultados = {}
 
     def trabajo_agente(agente_key: str):
@@ -79,7 +86,6 @@ def responder_paralelo(mensaje: str, combinacion: dict) -> dict:
         texto = _llamar_openrouter(agente["prompt"], [{"role": "user", "content": contexto}])
         resultados[agente_key] = {"respuesta": texto, "nombre": agente["nombre"]}
 
-    import threading
     threads = []
     for agente_key in combinacion["agentes"]:
         t = threading.Thread(target=trabajo_agente, args=(agente_key,))
